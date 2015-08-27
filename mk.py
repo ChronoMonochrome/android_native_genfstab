@@ -19,7 +19,7 @@
 import os, sys
 
 ROOT="/media/chrono/Other/android-ndk-r10d"
-APPNAME=(os.path.abspath(".")).split("/")[-1].replace(".", "_")
+APPNAME="genfstab"
 NDK_PLATFORM_VER=8
 CC="%s/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86/bin/arm-linux-androideabi-gcc" % ROOT
 CPP="%s/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86/bin/arm-linux-androideabi-g++" % ROOT
@@ -51,5 +51,10 @@ else: print("mk.py: no O files found")
 if len(sys.argv) > 1:
   if (sys.argv[1] == "push"):
     os.system("adb push %s /data/usr/%s" % (APPNAME, APPNAME))
+
+  if (sys.argv[1] == "clean"):
+    os.system("rm -fr *.o %s" % APPNAME)
+
+
 #os.system("%s -o main.o -c main.cpp %s"%(CPP, CFLAGS))
 #os.system("%s -o main main.o %s"%(CPP, LDFLAGS))
