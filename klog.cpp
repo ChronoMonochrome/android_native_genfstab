@@ -58,7 +58,7 @@ void klog_writev(int level, const struct iovec* iov, int iov_count) {
     if (level > klog_level) return;
     if (klog_fd < 0) klog_init();
     if (klog_fd < 0) return;
-    TEMP_FAILURE_RETRY(writev(klog_fd, iov, iov_count));
+    writev(klog_fd, iov, iov_count);
 }
 
 void klog_write(int level, const char* fmt, ...) {
