@@ -23,6 +23,7 @@
 
 #include "block.h"
 #include "misc.h"
+#include "log.h"
 
 #define INPUT "/ramdisk/fstab.tmp"
 #define OUTPUT "/ramdisk/fstab"
@@ -113,7 +114,7 @@ static int parse_and_write_partition_line(int fd, int idx) {
 	char *pstr;
 	
 	if (!fd || !fstab_p) {
-		printf("%s: !fd || !fstab_p\n", __func__);
+		pr_err("%s: !fd || !fstab_p\n", __func__);
 		return 1;
 	}
 
@@ -125,7 +126,7 @@ static int parse_and_write_partition_line(int fd, int idx) {
 			tmp = pstr - fstab_p[i] + strlen(BLOCK_PATTERN);
 			
 			if (!(isdigit(pstr[tmp]) && isdigit(pstr[tmp + 2]))) {
-				printf("%s: not correct partition/volume number: %s\n", __func__, fstab_p[i]);
+				pr_err("%s: not correct partition/volume number: %s\n", __func__, fstab_p[i]);
 				return 1;
 			}
 			new_volume_number = atoi(pstr[tmp]);
@@ -147,7 +148,7 @@ static int parse_and_write_partition_line(int fd, int idx) {
 		}
 	}
 	
-	printf("%s: partition %s not found\n", __func__, partition_table[i].name);
+	pr_err("%s: partition %s not found\n", __func__, partition_table[i].name);
 
 	return 1;
 }
@@ -174,7 +175,7 @@ static int parse_and_write_vold_lines(int fd) {
 	}
 
 	if (ret < 0) {
-		printf("%s: some vold managed devices weren't found\n");
+		pr_err("%s: some vold managed devices weren't found\n");
 		return 1;
 	}
 
@@ -196,7 +197,7 @@ int main (int argc, char *argv[]) {
 		ret = remove(INPUT);
 		//printf("remove(INPUT): %d\n", ret);
 		if (ret)
-			printf("%s: unable to remove %s\n", __func__, INPUT);
+			pr_err("%s: unable to remove %s\n", __func__, INPUT);
 	}
 	
 	if (!stat(OUTPUT, &st)) // if ./fstab is exists
@@ -205,12 +206,12 @@ int main (int argc, char *argv[]) {
 		ret = rename(OUTPUT, INPUT);
 		//printf("rename(OUTPUT, INPUT): %d\n", ret);
 		if (ret) {
-			printf("%s: unable to rename %s -> %s, trying to remove %s\n",
+			pr_err("%s: unable to rename %s -> %s, trying to remove %s\n",
 				 __func__, OUTPUT, INPUT, OUTPUT);
 			ret = remove(OUTPUT);
 			//printf("remove(OUTPUT): %d\n", ret);
 			if (ret) {
-				printf("%s: fatal: unable to remove %s\n", __func__, OUTPUT);
+				pr_err("%s: fatal: unable to remove %s\n", __func__, OUTPUT);
 				return -1;
 			}
 		}
@@ -222,17 +223,14 @@ int main (int argc, char *argv[]) {
 
 	mf = fopen(INPUT, "r");
 	fd1 = open(OUTPUT, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-
-	//mf = fopen(OUTPUT, "r");
-	//fd1 = open(INPUT, O_WRONLY | O_CREAT | O_TRUNC, 0640);
 	
 	if (!fd1) {
-		printf("%s: fatal: %s not opened!\n", __func__, OUTPUT);
+		pr_err("%s: fatal: %s not opened!\n", __func__, OUTPUT);
 		return 0;
 	}		
 
 	if (!mf) {
-		printf("%s: %s not opened!\n", __func__, INPUT);
+		pr_err("%s: %s not opened!\n", __func__, INPUT);
    		should_create_fstab = true;
 		// fstab doesn't exist, fallback to defaults
 		goto FALLBACK;
@@ -285,7 +283,7 @@ FALLBACK:
 
 	close(fd1);
 	ret = chown(OUTPUT, UID_SYSTEM, GID_SYSTEM);	
-	//printf("chown(OUTPUT): %d\n", ret);
+	//pr_err("chown(OUTPUT): %d\n", ret);
 
 	return 0;
 } 
