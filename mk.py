@@ -39,14 +39,14 @@ if c_files:
   for i in c_files:
     os.system("%s -o %s -c %s %s"%(CC, os.path.splitext(i)[0]+".o", i, CFLAGS))
 
-o_files=""
+o_files = ""
 
-for i in files:
-  if os.path.splitext(i)[-1] == ".o":
-    o_files+=" %s" % i
+for i in c_files + cpp_files:
+    o_files+=" %s" % (os.path.splitext(i)[0] + ".o")
 
 if o_files:
   os.system("%s -o %s %s %s"%(CPP, APPNAME, o_files, LDFLAGS))
+else: print("mk.py: no O files found")
 
 if len(sys.argv) > 1:
   if (sys.argv[1] == "push"):
