@@ -25,8 +25,8 @@
 #include "misc.h"
 #include "log.h"
 
-#define INPUT "fstab.tmp"
-#define OUTPUT "fstab"
+#define INPUT "/ramdisk/fstab.tmp"
+#define OUTPUT "/ramdisk/fstab"
 
 #define F2FS_MAGIC 0xF2F52010
 
@@ -155,41 +155,44 @@ static int parse_and_write_partition_line(int fd, int idx) {
 }
 
 static int parse_and_write_vold_lines(int fd) {
-	char buf[512];
+	char buf[2][512];
 	char *istr;
-	int i, idx, new_sdcard_number, ret = 0;
+	int i, j = 0, idx, new_sdcard_number, ret = 0;
 	
 	for (i = 0; i < read_lines; i++) {
-		printf("%s\n", fstab_p[i]);
 		if (strstr(fstab_p[i], SDCARD0) || strstr(fstab_p[i], SDCARD1)) {
+			j++;
 			istr = strstr(fstab_p[i], VOLD_PATTERN);
 			idx = istr - fstab_p[i] + strlen(VOLD_PATTERN);
 			new_sdcard_number = atoi(fstab_p[i][idx]);
 
 			if (strstr(fstab_p[i], SDCARD0)) {
 				ret += 1;
-				sprintf(buf, "%s auto auto defaults voldmanaged=sdcard%d:8,nonremovable,noemulatedsd\n", SDCARD0, new_sdcard_number);
+				//printf("%d\n", j-1);
+				sprintf(buf[j - 1], "%s auto auto defaults voldmanaged=sdcard%d:8,nonremovable,noemulatedsd\n", SDCARD0, new_sdcard_number);
 			} else if (strstr(fstab_p[i], SDCARD1)) {
 				ret += 2;
-				sprintf(buf, "%s auto auto defaults voldmanaged=sdcard%d:auto\n", SDCARD1, new_sdcard_number);
+				//printf("%d\n", j-1);
+				sprintf(buf[j - 1], "%s auto auto defaults voldmanaged=sdcard%d:auto\n", SDCARD1, new_sdcard_number);
 			}
 		
-			write(fd, buf, strlen(buf));
+			//write(fd, buf, strlen(buf));
 		} 
 	}
 
 	if (ret != 3) {
-		pr_err("%s: some vold managed devices weren't found (%d)\n", __func__, ret);
-		if (ret == 1 || ret == 0) {
-			sprintf(buf, "%s auto auto defaults voldmanaged=sdcard1:auto\n", SDCARD1);
-			write(fd, buf, strlen(buf));
-		}
-
-		if (ret == 2 || ret == 0) {
-			sprintf(buf, "%s auto auto defaults voldmanaged=sdcard0:8\n", SDCARD0);
-			write(fd, buf, strlen(buf));
-		}
+		pr_err("%s: some vold managed devices weren't found, ret=%d\n", __func__, ret);
+		memset(buf[0], 0, 512);
+		sprintf(buf[0], "%s auto auto defaults voldmanaged=sdcard1:auto\n", SDCARD1);
+		write(fd, buf[0], strlen(buf[0]));
+		memset(buf[0], 0, 512);
+		sprintf(buf[0], "%s auto auto defaults voldmanaged=sdcard0:8\n", SDCARD0);
+		write(fd, buf[0], strlen(buf[0]));
 			
+		return 1;
+	} else {
+		write(fd, buf[0], strlen(buf[0]));
+		write(fd, buf[1], strlen(buf[1]));
 		return 1;
 	}
 
