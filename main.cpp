@@ -25,16 +25,18 @@
 #include "misc.h"
 #include "log.h"
 
-#define INPUT "/ramdisk/fstab.tmp"
-#define OUTPUT "/ramdisk/fstab"
+#define INPUT "fstab.tmp"
+#define OUTPUT "fstab"
 
 #define F2FS_MAGIC 0xF2F52010
 
 #define UID_SYSTEM 1000
 #define GID_SYSTEM 1000
 
-char *fstab_p[10];
-char fstab[10][512]; // assume fstab contains up to 10 lines up to 512 bytes each
+char *fstab_p[20];
+char fstab[20][512]; // assume fstab contains up to 10 lines up to 512 bytes each
+
+int read_lines = 0;
 
 struct partition_t {
 	const char * name;
@@ -120,7 +122,6 @@ static int parse_and_write_partition_line(int fd, int idx) {
 
 	for (i = 0; i < ARRAY_SIZE(partition_table) - 1; i++) {
 		//istr = strstr(estr, partition_table[i].name);
-
 		if (strstr(fstab_p[i], partition_table[idx].name)) {
 			pstr = strstr(fstab_p[i], BLOCK_PATTERN);
 			tmp = pstr - fstab_p[i] + strlen(BLOCK_PATTERN);
@@ -156,26 +157,39 @@ static int parse_and_write_partition_line(int fd, int idx) {
 static int parse_and_write_vold_lines(int fd) {
 	char buf[512];
 	char *istr;
-	int i, idx, new_sdcard_number, ret = -2;
+	int i, idx, new_sdcard_number, ret = 0;
 	
-	for (i = 0; i < ARRAY_SIZE(partition_table); i++) {
+	for (i = 0; i < read_lines; i++) {
+		printf("%s\n", fstab_p[i]);
 		if (strstr(fstab_p[i], SDCARD0) || strstr(fstab_p[i], SDCARD1)) {
-			ret += 1;
 			istr = strstr(fstab_p[i], VOLD_PATTERN);
 			idx = istr - fstab_p[i] + strlen(VOLD_PATTERN);
 			new_sdcard_number = atoi(fstab_p[i][idx]);
 
-			if (strstr(fstab_p[i], SDCARD0))
+			if (strstr(fstab_p[i], SDCARD0)) {
+				ret += 1;
 				sprintf(buf, "%s auto auto defaults voldmanaged=sdcard%d:8,nonremovable,noemulatedsd\n", SDCARD0, new_sdcard_number);
-			else if (strstr(fstab_p[i], SDCARD1))
+			} else if (strstr(fstab_p[i], SDCARD1)) {
+				ret += 2;
 				sprintf(buf, "%s auto auto defaults voldmanaged=sdcard%d:auto\n", SDCARD1, new_sdcard_number);
+			}
 		
 			write(fd, buf, strlen(buf));
 		} 
 	}
 
-	if (ret < 0) {
-		pr_err("%s: some vold managed devices weren't found\n");
+	if (ret != 3) {
+		pr_err("%s: some vold managed devices weren't found (%d)\n", __func__, ret);
+		if (ret == 1 || ret == 0) {
+			sprintf(buf, "%s auto auto defaults voldmanaged=sdcard1:auto\n", SDCARD1);
+			write(fd, buf, strlen(buf));
+		}
+
+		if (ret == 2 || ret == 0) {
+			sprintf(buf, "%s auto auto defaults voldmanaged=sdcard0:8\n", SDCARD0);
+			write(fd, buf, strlen(buf));
+		}
+			
 		return 1;
 	}
 
@@ -187,7 +201,7 @@ int main (int argc, char *argv[]) {
 	FILE *mf;
 	char *pstr;
 	char str[512];
-	int i, fd1, read_lines = 0;
+	int i, fd1;
 	
 	bool should_create_fstab = false;
 
@@ -243,12 +257,30 @@ int main (int argc, char *argv[]) {
    		
 		while ( (fstab_p[read_lines] = fgets(fstab[read_lines], sizeof(fstab[read_lines]), mf)) &&
 				 read_lines < ARRAY_SIZE(fstab)) {
-			read_lines++;
+			if (fstab_p[read_lines]) {
+				// ignore lines that starts with '#' or '\n'
+				if (fstab_p[read_lines][0] != 35 && fstab_p[read_lines][0] != 10) {
+					//printf("%d: %s\n", read_lines, fstab_p[read_lines]);
+					read_lines++;
+				} else {
+					memset(fstab_p[read_lines], 0, 512);
+				}
+			} else {
+				should_create_fstab = true;
+				goto FALLBACK;
+			}
 		}
 		fclose(mf);
 
+		if (read_lines == 0) {
+			should_create_fstab = true;
+			goto FALLBACK;
+		}
+			
+
 		for (i = 0; i < ARRAY_SIZE(partition_table) - 2; i++) {
 			// try to parse an existing fstab first
+
 			if (parse_and_write_partition_line(fd1, i)) {
 				// fallback to default
 				if (partition_table[i].use_in_parsing)

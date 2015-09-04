@@ -26,7 +26,7 @@ CPP="%s/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86/bin/arm-linux-an
 INCLUDE="%s/platforms/android-%d/arch-arm/usr/include/"%(ROOT,NDK_PLATFORM_VER)
 LIB="%s/platforms/android-%d/arch-arm/usr/lib"%(ROOT,NDK_PLATFORM_VER)
 CFLAGS="""-O2 -marm -std=c++11 -fomit-frame-pointer -I %s"""%INCLUDE
-LDFLAGS="%s/crtbegin_dynamic.o %s/crtend_android.o -L %s -nostdlib -lc -lm -lgcc -llog" % (LIB, LIB, LIB)
+LDFLAGS="%s/crtbegin_dynamic.o %s/crtend_android.o -Wl,-dynamic-linker=/ramdisk/linker -L %s -nostdlib -lc -lm -lgcc -llog" % (LIB, LIB, LIB)
 files=os.listdir("./")
 cpp_files=[i for i in files if os.path.splitext(i)[-1] == ".cpp"]
 c_files=[i for i in files if os.path.splitext(i)[-1] == ".c"]
@@ -50,7 +50,7 @@ else: print("mk.py: no O files found")
 
 if len(sys.argv) > 1:
   if (sys.argv[1] == "push"):
-    os.system("adb push %s /data/usr/%s" % (APPNAME, APPNAME))
+    os.system("adb push %s /ramdisk/%s" % (APPNAME, APPNAME))
 
   if (sys.argv[1] == "clean"):
     os.system("rm -fr *.o %s" % APPNAME)
